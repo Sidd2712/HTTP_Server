@@ -33,6 +33,7 @@ This is a simple HTTP server implemented in Node.js using the native `net` modul
 ```bash
    git clone https://github.com/your-repo/minimal-http-server.git
    npm install
+```
 
 ## Running the Server
    node server.js --directory <path-to-serve-files-from>
