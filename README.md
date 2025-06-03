@@ -39,21 +39,20 @@ npm install
 
 ## Running the Server
 
-   ```bash
    node server.js --directory <path-to-serve-files-from>
 
----
+
 
 ## Usage and Testing
 
-1. Root path
- ```bash
+## 1. Root path
+
  curl -v http://localhost:4221/
-   Returns: Status: 200 OK
+
+##   Returns: Status: 200 OK
 
 
-2. Echo endpoint
-```bash
+## 2. Echo endpoint
 curl -v http://localhost:4221/echo/hello-world
 curl -v http://localhost:4221/echo/compressed -H "Accept-Encoding: gzip"
 
