@@ -31,23 +31,16 @@ This is a simple HTTP server implemented in Node.js using the native `net` modul
 ## Installation
 
 ```bash
-git clone https://github.com/your-repo/minimal-http-server.git
-cd minimal-http-server
-npm install
-
----
+   git clone https://github.com/your-repo/minimal-http-server.git
+   npm install
 
 ## Running the Server
-
    node server.js --directory <path-to-serve-files-from>
-
-
 
 ## Usage and Testing
 
 ## 1. Root path
-
- curl -v http://localhost:4221/
+   curl -v http://localhost:4221/
 
 ##   Returns: Status: 200 OK
 
@@ -56,12 +49,13 @@ npm install
 curl -v http://localhost:4221/echo/hello-world
 curl -v http://localhost:4221/echo/compressed -H "Accept-Encoding: gzip"
 
-Returns the string after /echo/:
-Status: 200 OK
-Body: hello-world
-Supports gzip compression if the client requests it:
+## Returns the string after /echo/:
+## Status: 200 OK
+## Body: hello-world
+## Supports gzip compression if the client requests it:
 
-3. User-Agent endpoint
+
+## 3. User-Agent endpoint
 Returns the User-Agent header sent by the client:
  ```bash
 curl -v http://localhost:4221/user-agent -H "User-Agent: custom-agent/1.0"
