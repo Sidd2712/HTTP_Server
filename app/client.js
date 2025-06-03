@@ -1,10 +1,10 @@
 const http = require("http");
 
-// Customize the path here to test different endpoints
+
 const options = {
   hostname: "localhost",
   port: 4221,
-  path: "/echo/Codecrafters", // Change this to test other routes
+  path: "/echo/", 
   method: "GET",
 };
 

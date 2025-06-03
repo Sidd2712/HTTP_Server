@@ -7,6 +7,25 @@ const dirFlagIndex = process.argv.indexOf("--directory");
 const baseDir = dirFlagIndex !== -1 ? process.argv[dirFlagIndex + 1] : ".";
 console.log("Server files from:", baseDir);
 
+function writeResponse(socket, statusLine, headersObj, body, shouldClose) {
+  let headersStr = "";
+  for (const key in headersObj) {
+    headersStr += `${key}: ${headersObj[key]}\r\n`;
+  }
+  if (shouldClose) {
+    headersStr += `Connection: close\r\n`;
+  } else {
+    headersStr += `Connection: keep-alive\r\n`;
+  }
+  const response = `${statusLine}\r\n${headersStr}\r\n`;
+  socket.write(response);
+  if (body) socket.write(body);
+  if (shouldClose) {
+    socket.end();
+    return;
+  }
+}
+
 const server = net.createServer((socket) => {
   let requestData = "";
 
@@ -15,37 +34,51 @@ const server = net.createServer((socket) => {
 
     while (true) {
       const headerEndIndex = requestData.indexOf("\r\n\r\n");
-      if (headerEndIndex === -1) return; // wait for full headers
+      if (headerEndIndex === -1) break;
 
       const headersPart = requestData.slice(0, headerEndIndex);
       const reqLine = headersPart.split("\r\n")[0];
       const [method, reqPath] = reqLine.split(" ");
 
-      const headers = {};
-      const headerLines = headersPart.split("\r\n").slice(1);
-      for (const line of headerLines) {
-        const [key, value] = line.split(": ");
-        if (key && value) headers[key.toLowerCase()] = value;
+      const headers = headersPart.split("\r\n").slice(1);
+      const headersMap = {};
+      for (const line of headers) {
+        const [key, ...rest] = line.split(":");
+        if (key && rest.length > 0) {
+          headersMap[key.trim().toLowerCase()] = rest.join(":").trim();
+        }
       }
 
-      const contentLength = parseInt(headers["content-length"] || "0");
-      const totalLength = headerEndIndex + 4 + contentLength;
+      // if we want to close or not
+      const connectionHeader = headersMap["connection"] || "";
+      const shouldClose = connectionHeader.toLowerCase() === "close";
 
-      if (requestData.length < totalLength) return; // wait for full body
+      let contentLength = 0;
+      if (headersMap["content-length"]) {
+        contentLength = parseInt(headersMap["content-length"]);
+        if (isNaN(contentLength)) contentLength = 0;
+      }
 
-      const body = requestData.slice(headerEndIndex + 4, totalLength);
-      requestData = requestData.slice(totalLength); // Remove this request from buffer
+      const totalRequestLength = headerEndIndex + 4 + contentLength;
+      if (requestData.length < totalRequestLength) break;
+
+      const body = requestData.slice(headerEndIndex + 4, totalRequestLength);
+
+      // Trim request
+      requestData = requestData.slice(totalRequestLength);
 
       if (method === "GET") {
         if (reqPath === "/") {
-          socket.write("HTTP/1.1 200 OK\r\n\r\n");
+          writeResponse(socket, "HTTP/1.1 200 OK", {}, null, shouldClose);
           continue;
         } else if (reqPath.startsWith("/echo/")) {
           const echoStr = reqPath.slice(6);
           let acceptsGzip = false;
 
-          if (headers["accept-encoding"]) {
-            const encodings = headers["accept-encoding"].split(",").map(e => e.trim().toLowerCase());
+          if (headersMap["accept-encoding"]) {
+            const encodings = headersMap["accept-encoding"]
+              .split(",")
+              .map((e) => e.trim().toLowerCase());
             if (encodings.includes("gzip")) {
               acceptsGzip = true;
             }
@@ -54,53 +87,69 @@ const server = net.createServer((socket) => {
           if (acceptsGzip) {
             zlib.gzip(echoStr, (err, compressedBody) => {
               if (err) {
-                socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
-              } else {
-                const response =
-                  `HTTP/1.1 200 OK\r\n` +
-                  `Content-Type: text/plain\r\n` +
-                  `Content-Encoding: gzip\r\n` +
-                  `Content-Length: ${compressedBody.length}\r\n\r\n`;
-                socket.write(response);
-                socket.write(compressedBody);
+                writeResponse(socket, "HTTP/1.1 500 Internal Server Error", {}, null, shouldClose);
+                return;
               }
+              writeResponse(
+                socket,
+                "HTTP/1.1 200 OK",
+                {
+                  "Content-Type": "text/plain",
+                  "Content-Encoding": "gzip",
+                  "Content-Length": compressedBody.length,
+                },
+                compressedBody,
+                shouldClose
+              );
             });
           } else {
-            const contentLen = Buffer.byteLength(echoStr);
-            const response =
-              `HTTP/1.1 200 OK\r\n` +
-              `Content-Type: text/plain\r\n` +
-              `Content-Length: ${contentLen}\r\n\r\n` +
-              `${echoStr}`;
-            socket.write(response);
+            writeResponse(
+              socket,
+              "HTTP/1.1 200 OK",
+              {
+                "Content-Type": "text/plain",
+                "Content-Length": Buffer.byteLength(echoStr),
+              },
+              echoStr,
+              shouldClose
+            );
           }
           continue;
         } else if (reqPath === "/user-agent") {
-          let userAgent = headers["user-agent"] || "";
-          const contentLen = Buffer.byteLength(userAgent);
-          const response =
-            `HTTP/1.1 200 OK\r\n` +
-            `Content-Type: text/plain\r\n` +
-            `Content-Length: ${contentLen}\r\n\r\n` +
-            `${userAgent}`;
-          socket.write(response);
+          const userAgent = headersMap["user-agent"] || "";
+          writeResponse(
+            socket,
+            "HTTP/1.1 200 OK",
+            {
+              "Content-Type": "text/plain",
+              "Content-Length": Buffer.byteLength(userAgent),
+            },
+            userAgent,
+            shouldClose
+          );
           continue;
         } else if (reqPath.startsWith("/files/")) {
           const filename = reqPath.slice("/files/".length);
           const filePath = path.join(baseDir, filename);
           fs.readFile(filePath, (err, fileData) => {
             if (err) {
-              socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+              writeResponse(socket, "HTTP/1.1 404 Not Found", {}, null, shouldClose);
             } else {
-              socket.write(
-                `HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ${fileData.length}\r\n\r\n`
+              writeResponse(
+                socket,
+                "HTTP/1.1 200 OK",
+                {
+                  "Content-Type": "application/octet-stream",
+                  "Content-Length": fileData.length,
+                },
+                fileData,
+                shouldClose
               );
-              socket.write(fileData);
             }
           });
           continue;
         } else {
-          socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+          writeResponse(socket, "HTTP/1.1 404 Not Found", {}, null, shouldClose);
           continue;
         }
       } else if (method === "POST") {
@@ -109,30 +158,28 @@ const server = net.createServer((socket) => {
           const filePath = path.join(baseDir, filename);
           fs.writeFile(filePath, body, (err) => {
             if (err) {
-              socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
+              writeResponse(socket, "HTTP/1.1 500 Internal Server Error", {}, null, shouldClose);
             } else {
-              socket.write("HTTP/1.1 201 Created\r\n\r\n");
+              writeResponse(socket, "HTTP/1.1 201 Created", {}, null, shouldClose);
             }
           });
           continue;
         }
-        socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+        writeResponse(socket, "HTTP/1.1 404 Not Found", {}, null, shouldClose);
         continue;
       } else {
-        socket.write("HTTP/1.1 405 Method Not Allowed\r\n\r\n");
+        writeResponse(socket, "HTTP/1.1 405 Method Not Allowed", {}, null, shouldClose);
         continue;
-      }
-
-      // Optional: close if client requested
-      if ((headers["connection"] || "").toLowerCase() === "close") {
-        socket.end();
-        break;
       }
     }
   });
 
   socket.on("error", () => {
     socket.destroy();
+  });
+
+  socket.on("end", () => {
+    socket.end();
   });
 });
 
