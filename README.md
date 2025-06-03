@@ -1,4 +1,4 @@
-# Minimal HTTP Server in Node.js
+# HTTP Server in Node.js
 
 This is a simple HTTP server implemented in Node.js using the native `net` module. It demonstrates how to handle raw TCP connections, parse HTTP/1.1 requests, support persistent connections, handle multiple concurrent clients, and serve basic routes including static files with gzip compression.
 
