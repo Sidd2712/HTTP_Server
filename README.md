@@ -36,71 +36,77 @@ This is a simple HTTP server implemented in Node.js using the native `net` modul
 ```
 
 ## Running the Server
+```bash
    node server.js --directory <path-to-serve-files-from>
+```
 
 ## Usage and Testing
 
-## 1. Root path
+### 1. Root path
+```bash
    curl -v http://localhost:4221/
+```
 
-##   Returns: Status: 200 OK
+- Returns: Status: 200 OK
 
-
-## 2. Echo endpoint
+### 2. Echo endpoint
+```bash
 curl -v http://localhost:4221/echo/hello-world
 curl -v http://localhost:4221/echo/compressed -H "Accept-Encoding: gzip"
+```
+-Returns the string after /echo/:
+-Status: 200 OK
+-Body: hello-world
+-Supports gzip compression if the client requests it:
 
-## Returns the string after /echo/:
-## Status: 200 OK
-## Body: hello-world
-## Supports gzip compression if the client requests it:
 
-
-## 3. User-Agent endpoint
-Returns the User-Agent header sent by the client:
+### 3. User-Agent endpoint
+-Returns the User-Agent header sent by the client:
  ```bash
 curl -v http://localhost:4221/user-agent -H "User-Agent: custom-agent/1.0"
+```
+-Returns:
+-Status: 200 OK
+-Body: custom-agent/1.0
 
-Returns:
-Status: 200 OK
-Body: custom-agent/1.0
-
-4. Files endpoint (GET)
+### 4. Files endpoint (GET)
 Serves a file from the specified base directory:
 ```bash
 curl -v http://localhost:4221/files/filename.txt
+```
 
-If the file exists, returns 200 OK and the file content.
-If not, returns 404 Not Found.
+-If the file exists, returns 200 OK and the file content.
+-If not, returns 404 Not Found.
 
-5. Files endpoint (POST)
-Uploads (writes) a file to the base directory:
+### 5. Files endpoint (POST)
+-Uploads (writes) a file to the base directory:
 
 ```bash
 curl -v -X POST http://localhost:4221/files/upload.txt --data-binary @localfile.txt
+```
 
-Saves localfile.txt content to <baseDir>/upload.txt.
-Returns 201 Created on success.
+-Saves localfile.txt content to <baseDir>/upload.txt.
+-Returns 201 Created on success.
 
-6. Connection persistence
-The server supports HTTP/1.1 persistent connections by default (Connection: keep-alive).
-
-To explicitly close a connection, send the header:
+### 6. Connection persistence
+-The server supports HTTP/1.1 persistent connections by default (Connection: keep-alive).
+-To explicitly close a connection, send the header:
 
 ```bash
 curl -v http://localhost:4221/echo/test -H "Connection: close"
+```
+-The server response will include Connection: close and close the TCP connection.
 
-The server response will include Connection: close and close the TCP connection.
-Implementation Details
-The server listens on port 4221 on localhost.
-Uses the net module for TCP sockets.
-Parses HTTP requests manually by detecting header/body boundaries.
-Supports chunked requests (waiting for full body using Content-Length).
-Handles multiple requests per connection.
-Manages concurrent connections independently.
-Compresses response bodies with gzip if requested.
-Supports basic routing logic based on request method and URL.
-Handles errors gracefully and closes sockets properly.
+##Implementation Details
+-The server listens on port 4221 on localhost.
+-Uses the net module for TCP sockets.
+-Parses HTTP requests manually by detecting header/body boundaries.
+-Supports chunked requests (waiting for full body using Content-Length).
+-Handles multiple requests per connection.
+-Manages concurrent connections independently.
+-Compresses response bodies with gzip if requested.
+-Supports basic routing logic based on request method and URL.
+-Handles errors gracefully and closes sockets properly.
 
 ## Limitations
 -Does not support HTTPS.
@@ -117,8 +123,7 @@ Handles errors gracefully and closes sockets properly.
 -Add chunked transfer encoding support.
 -Implement more advanced routing and middleware.
 -Add logging and metrics.
-
-## Improve error handling and validation.
+-Improve error handling and validation.
 
 ## License
 -This project is open for educational and personal use.
